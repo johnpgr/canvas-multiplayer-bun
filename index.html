@@ -6,6 +6,32 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multiplayer prototype</title>
+    <style>
+        .debug-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            color: white;
+            background: hsl(230, 100%, 50%);
+            border-radius: 4px;
+            font-weight: 600;
+            border: unset;
+            cursor: pointer;
+            transition-property: color,
+                background-color,
+                border-color,
+                text-decoration-color,
+                fill,
+                stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
+
+            &:hover {
+                background: hsl(230, 70%, 50%);
+            }
+        }
+    </style>
 </head>
 
 <body>

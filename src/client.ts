@@ -1,6 +1,6 @@
 import {
-    GAME_HEIGHT,
-    GAME_WIDTH,
+    WORLD_HEIGHT,
+    WORLD_WIDTH,
     Hello,
     type MoveDirection,
     Player,
@@ -8,12 +8,14 @@ import {
     PlayerJoined,
     PlayerLeft,
     PlayerMoving,
-    PlayerStartMoving,
+    PlayerMoveRequest,
     sendMessage,
     updatePlayer,
     SERVER_PORT,
 } from "./common";
 import { assert, debug, Try } from "./utils";
+
+const $ = document.querySelector.bind(document);
 
 const DIRECTION_KEYS: { [key: string]: MoveDirection } = {
     ArrowLeft: "west",
@@ -26,23 +28,27 @@ const DIRECTION_KEYS: { [key: string]: MoveDirection } = {
     KeyS: "south",
 };
 
-const gameCanvas = document.getElementById("game") as HTMLCanvasElement | null;
+const gameCanvas = $("#game") as HTMLCanvasElement | null;
 assert(gameCanvas !== null, "Game canvas not found");
-gameCanvas.width = GAME_WIDTH;
-gameCanvas.height = GAME_HEIGHT;
+gameCanvas.width = WORLD_WIDTH;
+gameCanvas.height = WORLD_HEIGHT;
 
 const ctx = gameCanvas.getContext("2d");
 assert(ctx !== null, "Canvas 2D context not found");
 
 const ws = new WebSocket(`ws://${window.location.hostname}:${SERVER_PORT}`);
 
-let ownId: number | undefined;
+let me: Player | undefined;
 const players = new Map<number, Player>();
 ws.addEventListener("open", () => {
     debug("Socket connection open");
 });
 ws.addEventListener("close", () => {
     debug("Socket connection closed");
+});
+ws.addEventListener("error", (event) => {
+    //TODO: reconnect on errors
+    console.log("Websocket error", event);
 });
 ws.addEventListener("message", (event) => {
     const message = Try(() => JSON.parse(event.data));
@@ -57,8 +63,13 @@ ws.addEventListener("message", (event) => {
     debug("Received message", message);
 
     if (Hello.is(message)) {
-        ownId = message.id;
-        debug(`Connected as player ${ownId}`);
+        me = new Player(
+            message.id,
+            { x: message.x, y: message.y },
+            message.style,
+        );
+        players.set(me.id, me);
+        debug(`Connected as player ${me.id}`);
     } else if (PlayerJoined.is(message)) {
         players.set(
             message.id,
@@ -88,23 +99,28 @@ ws.addEventListener("message", (event) => {
 
 let prevTime = 0;
 const frame = (timestamp: number) => {
-    const deltaTime = timestamp - prevTime;
+    const deltaTime = (timestamp - prevTime) / 1000;
     prevTime = timestamp;
     ctx.fillStyle = "#202020";
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    for (const player of players.values()) {
-        updatePlayer(player, deltaTime);
-        ctx.fillStyle = player.style;
-        ctx.fillRect(player.x, player.y, PLAYER_SIZE, PLAYER_SIZE);
-        if (player.id === ownId) {
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.strokeRect(player.x, player.y, PLAYER_SIZE, PLAYER_SIZE);
-            ctx.stroke();
+    players.forEach((player) => {
+        if (me !== undefined && me.id !== player.id) {
+            updatePlayer(player, deltaTime);
+            ctx.fillStyle = player.style;
+            ctx.fillRect(player.x, player.y, PLAYER_SIZE, PLAYER_SIZE);
         }
-    }
+    });
 
+    if (me !== undefined) {
+        updatePlayer(me, deltaTime);
+        ctx.fillStyle = me.style;
+        ctx.fillRect(me.x, me.y, PLAYER_SIZE, PLAYER_SIZE);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.strokeRect(me.x, me.y, PLAYER_SIZE, PLAYER_SIZE);
+        ctx.stroke();
+    }
     window.requestAnimationFrame(frame);
 };
 
@@ -114,29 +130,41 @@ window.requestAnimationFrame((timestamp) => {
 });
 
 window.addEventListener("keydown", (event) => {
-    if (ownId === undefined) return;
+    if (me === undefined) return;
     if (event.repeat) return;
 
     const direction = DIRECTION_KEYS[event.code];
     if (!direction) return;
 
-    sendMessage<PlayerStartMoving>(ws, {
-        kind: "PlayerStartMoving",
+    sendMessage<PlayerMoveRequest>(ws, {
+        kind: "PlayerMoveRequest",
         start: true,
         direction,
     });
 });
 
 window.addEventListener("keyup", (event) => {
-    if (ownId === undefined) return;
+    if (me === undefined) return;
     if (event.repeat) return;
 
     const direction = DIRECTION_KEYS[event.code];
     if (!direction) return;
 
-    sendMessage<PlayerStartMoving>(ws, {
-        kind: "PlayerStartMoving",
+    sendMessage<PlayerMoveRequest>(ws, {
+        kind: "PlayerMoveRequest",
         start: false,
         direction,
     });
 });
+
+//@ts-ignore
+if (DEBUG) {
+    const debugBtn = document.createElement("button");
+    debugBtn.textContent = "Debug";
+    debugBtn.className = "debug-btn";
+    document.body.appendChild(debugBtn);
+
+    debugBtn.addEventListener("click", () => {
+        debug({ me, players });
+    });
+}

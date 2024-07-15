@@ -18,7 +18,7 @@ async function buildClient() {
         sourcemap: "linked",
         plugins: [UnpluginTypia()],
         define: {
-            DEBUG: String(true),
+            DEBUG: process.env.DEBUG ?? "false",
         },
     })
         .then(() => console.log("Client build success."))

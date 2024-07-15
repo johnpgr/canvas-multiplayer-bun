@@ -16,7 +16,9 @@
         "typia": "^6.5.1"
     },
     "scripts": {
-        "dev": "concurrently 'DEBUG=true bun --watch src/server.ts' 'DEBUG=true bun --watch watch.ts'",
+        "dev": "concurrently 'bun --watch src/server.ts' 'bun --watch watch.ts'",
+        "dev:debug": "concurrently 'DEBUG=true bun --watch src/server.ts' 'DEBUG=true bun --watch watch.ts'",
+        "stats": "bun run ./stats.ts",
         "prepare": "ts-patch install && typia patch"
     }
 }
