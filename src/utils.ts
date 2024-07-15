@@ -1,5 +1,3 @@
-import { STATS_AVERAGE_CAPACITY } from "./common";
-
 export type Result<T, E> =
     | (T & { readonly ok: true })
     | { readonly ok: false; error: E };

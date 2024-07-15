@@ -65,20 +65,21 @@ class Stats implements IStats {
     print(): string {
         return `Stats:
     Ticks: ${stats.ticksCount}
-    Uptime (secs): ${performance.now() - stats.startedAt}
-    Average tick time: ${average(stats.tickTimes)}
+    Uptime (secs): ${(performance.now() - stats.startedAt).toFixed(0)}
+    Average tick time (ms): ${(average(stats.tickTimes) * 1000).toFixed(2)}
     Messages sent: ${stats.messagesSent}
     Messages received: ${stats.messagesReceived}
-    Average messages sent per tick: ${average(stats.tickMessagesSent)}
-    Average messages received per tick: ${average(stats.tickMessagesReceived)}
+    Average messages sent per tick: ${average(stats.tickMessagesSent).toFixed(2)}
+    Average messages received per tick: ${average(stats.tickMessagesReceived).toFixed(2)}
     Bytes sent: ${stats.bytesSent}
     Bytes received: ${stats.bytesReceived}
-    Average bytes sent per tick: ${average(stats.tickByteSent)}
-    Average bytes received per tick: ${average(stats.tickByteReceived)}
+    Average bytes sent per tick: ${average(stats.tickByteSent).toFixed(2)}
+    Average bytes received per tick: ${average(stats.tickByteReceived).toFixed(2)}
     Current players: ${players.size}
     Players joined: ${stats.playersJoined}
     Players left: ${stats.playersLeft}
     Invalid messages: ${stats.invalidMessages}
+    Current Memory Usage (MB): ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}
 `;
     }
 }
@@ -226,8 +227,12 @@ const wss = Bun.serve<{ id: number }>({
 
 console.log("WebSocketServer listening on: ws://localhost:" + wss.port);
 
+let prevTimestamp = performance.now();
+
 function tick(): void {
-    const beginTickTime = performance.now();
+    const timestamp = performance.now();
+    const deltaTime = timestamp / prevTimestamp / 1000;
+    prevTimestamp = timestamp;
     let messageSentCount = 0;
     let bytesSentCount = 0;
 
@@ -356,21 +361,22 @@ function tick(): void {
         }
     }
     // Simulate the world for one server tick
-    // TODO: simulate at actual deltaTime, so to not break the prediction of the players.
     players.forEach((player) => updatePlayer(player, 1 / SERVER_TPS));
+
+    const tickTime = performance.now() - timestamp;
     stats.ticksCount++;
-    pushAverage(stats.tickTimes, (performance.now() - beginTickTime) / 1000);
     stats.messagesSent += messageSentCount;
+    stats.bytesSent += bytesSentCount;
+    pushAverage(stats.tickTimes, tickTime / 1000);
     pushAverage(stats.tickMessagesSent, messageSentCount);
     pushAverage(stats.tickMessagesReceived, eventQueue.size);
-    stats.bytesSent += bytesSentCount;
     pushAverage(stats.tickByteSent, bytesSentCount);
     pushAverage(stats.tickByteReceived, bytesReceivedWithinTick);
 
     eventQueue.clear();
     bytesReceivedWithinTick = 0;
 
-    setTimeout(tick, 1000 / SERVER_TPS);
+    setTimeout(tick, Math.max(0, 1000 / SERVER_TPS - tickTime));
 }
 
 setTimeout(tick, 1000 / SERVER_TPS);

@@ -19,6 +19,7 @@
         "dev": "concurrently 'bun --watch src/server.ts' 'bun --watch watch.ts'",
         "dev:debug": "concurrently 'DEBUG=true bun --watch src/server.ts' 'DEBUG=true bun --watch watch.ts'",
         "stats": "bun run ./stats.ts",
+        "bots": "bun run ./src/bots.ts",
         "prepare": "ts-patch install && typia patch"
     }
 }
